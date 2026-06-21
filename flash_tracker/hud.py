@@ -49,18 +49,27 @@ class MiniHUD:
             return
         self.text.config(state="normal")
         self.text.delete("1.0", "end")
+        lines = []
         if not timers:
-            self.text.insert("end", "— keine Flashes —", "ok")
+            lines = ["— keine Flashes —"]
+            self.text.insert("end", lines[0], "ok")
         else:
             for t in timers:
                 m, s = t.mmss()
                 icon = "⚡" if t.spell == "flash" else "•"
                 mark = "" if t.certain else " ?"
-                line = f"{t.champion.lower()} {icon} {m}:{s:02d}{mark}\n"
+                # Champ-Name groß (z.B. "Jhin").
+                line = f"{t.champion} {icon} {m}:{s:02d}{mark}"
+                lines.append(line)
                 rem = t.remaining()
                 tag = "ready" if rem < 30 else ("soon" if rem < 60 else "ok")
-                self.text.insert("end", line, tag)
-        self.text.config(state="disabled")
+                self.text.insert("end", line + "\n", tag)
+        # Fenster nur so groß wie nötig (Anzahl Flashes + längste Zeile).
+        self.text.config(
+            height=max(1, len(lines)),
+            width=max(len(l) for l in lines) + 2,
+            state="disabled",
+        )
 
     def show(self):
         self.win.deiconify()

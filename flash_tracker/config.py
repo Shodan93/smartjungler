@@ -78,8 +78,8 @@ CHAT_AUTO_SEND    = True    # nach dem Tippen automatisch mit Enter absenden
 PASTE_TO_ALL_CHAT = False   # True = All-Chat (Shift+Enter); nur ohne ALREADY_OPEN
 
 # ---- Minimal-HUD -------------------------------------------
-HUD_X = 1150
-HUD_Y = 60
+HUD_X = 0          # ganz oben links
+HUD_Y = 0
 HUD_ALPHA = 0.85
 HUD_DEFAULT = True
 
