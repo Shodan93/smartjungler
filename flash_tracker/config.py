@@ -43,9 +43,11 @@ FUZZY_CUTOFF = 0.7
 # --- Sofort-Erkennung + Selbst-Verifizierung ---
 # Ein Flash erscheint SOFORT beim ersten Read (provisorisch, grau im HUD).
 # Wird er innerhalb von CONFIRM_WINDOW Sekunden insgesamt MIN_SIGHTINGS-mal
-# gelesen -> bestätigt (grün). Wird er nur 1x gesehen (Fantasie) -> nach
-# Ablauf des Fensters automatisch wieder entfernt (Selbstkorrektur).
-CONFIRM_WINDOW = 1.5   # Zeit zum Verifizieren nach der ersten Sichtung
+# gelesen -> bestätigt (grün). Wird er bis dahin nur 1x gesehen (Fantasie)
+# -> automatisch wieder entfernt.
+# Fenster großzügig, damit echte Flashes (deren Name mal verlesen wird)
+# NICHT fälschlich rausfliegen. Bestätigte Timer werden NIE entfernt.
+CONFIRM_WINDOW = 5.0   # Zeit zum Verifizieren nach der ersten Sichtung
 MIN_SIGHTINGS  = 2     # Reads bis "bestätigt"
 
 # Timer nur für Zeilen MIT erkennbarem Timestamp (kill für Hintergrund-Müll)
