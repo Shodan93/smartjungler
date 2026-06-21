@@ -1,18 +1,24 @@
-"""OCR-Debug-Tool.
+"""OCR-Debug-Tool mit Countdown.
 
-Macht EINEN Screenshot der aktuellen CHAT_REGION aus config.py,
-speichert das Roh- und das aufbereitete Bild und zeigt, welchen Text
-Tesseract erkennt und welche Spell-Pings der Parser findet.
+Weil League meist im Vordergrund sein muss (sonst ist der Chat weg),
+wartet das Tool ein paar Sekunden, bevor es den Screenshot macht.
+Du startest es im Terminal und wechselst dann zu League.
 
-So siehst du sofort, ob
-  - der Bildausschnitt stimmt  (schau dir debug_raw.png an)
-  - die OCR den Text liest      (siehe Konsole)
-  - der Parser ihn versteht     (siehe Konsole)
+Aufrufe:
+    python debug_ocr.py            -> scannt die CHAT_REGION (5s Countdown)
+    python debug_ocr.py full       -> Vollbild-Screenshot zum Position finden
+    python debug_ocr.py 8          -> Countdown auf 8 Sekunden setzen
+    python debug_ocr.py full 8     -> Vollbild + 8s Countdown
 
-Aufruf (League mit offenem Chat im Vordergrund lassen):
-    python debug_ocr.py
+Tipp: League auf "Randlos" (Borderless) stellen, sonst sind Screenshots
+unter Umständen schwarz.
 """
+import sys
+import time
+
 import cv2
+import numpy as np
+import mss
 
 from capture import capture_chat
 from ocr import preprocess, read_chat
@@ -20,15 +26,40 @@ from parser import parse_chat
 from config import CHAT_REGION
 
 
-def main():
+def countdown(seconds):
+    print(f"Wechsle JETZT zu League (offener Chat)! Screenshot in {seconds}s …")
+    for i in range(seconds, 0, -1):
+        print(f"  {i} …", flush=True)
+        time.sleep(1)
+    print("  *klick*")
+
+
+def grab_fullscreen():
+    with mss.mss() as sct:
+        return np.array(sct.grab(sct.monitors[1]))
+
+
+def run_full(secs):
+    countdown(secs)
+    img = grab_fullscreen()
+    bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+    cv2.imwrite("debug_fullscreen.png", bgr)
+    h, w = bgr.shape[:2]
+    print(f"\nVollbild gespeichert: debug_fullscreen.png  ({w} x {h} px)")
+    print("Öffne das Bild und lies grob die Pixel-Koordinaten des")
+    print("Chatfensters ab (oben-links = 0,0). Dann CHAT_REGION setzen,")
+    print("oder mit 'python calibrate.py' ein Rechteck ziehen.")
+
+
+def run_region(secs):
     print("CHAT_REGION:", CHAT_REGION)
+    countdown(secs)
 
     img = capture_chat()
-    print("Screenshot-Größe (H x B):", img.shape[:2])
+    print("Ausschnitt-Größe (H x B):", img.shape[:2])
 
-    # Bilder speichern, damit du den Ausschnitt prüfen kannst.
-    raw_bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR) if img.shape[-1] == 4 else img
-    cv2.imwrite("debug_raw.png", raw_bgr)
+    raw = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR) if img.shape[-1] == 4 else img
+    cv2.imwrite("debug_raw.png", raw)
     cv2.imwrite("debug_processed.png", preprocess(img))
     print("Gespeichert: debug_raw.png  und  debug_processed.png")
 
@@ -44,6 +75,19 @@ def main():
             print("  ", e)
     else:
         print("   (keine)")
+
+
+def main():
+    args = [a.lower() for a in sys.argv[1:]]
+    full = "full" in args
+    secs = 5
+    for a in args:
+        if a.isdigit():
+            secs = int(a)
+    if full:
+        run_full(secs)
+    else:
+        run_region(secs)
 
 
 if __name__ == "__main__":

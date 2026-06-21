@@ -12,6 +12,8 @@ Bedienung:
     - 'r'  = Auswahl zurücksetzen
     - Enter/'q' = beenden
 """
+import sys
+import time
 import mss
 import numpy as np
 import cv2
@@ -52,6 +54,17 @@ def print_region():
 
 
 def main():
+    # Countdown, damit du zu League (offener Chat) wechseln kannst,
+    # bevor der Screenshot gemacht wird. Dauer via Argument: calibrate.py 8
+    secs = 5
+    for a in sys.argv[1:]:
+        if a.isdigit():
+            secs = int(a)
+    print(f"Wechsle JETZT zu League (offener Chat)! Screenshot in {secs}s …")
+    for i in range(secs, 0, -1):
+        print(f"  {i} …", flush=True)
+        time.sleep(1)
+
     with mss.mss() as sct:
         screen = np.array(sct.grab(sct.monitors[1]))
     screen = cv2.cvtColor(screen, cv2.COLOR_BGRA2BGR)
