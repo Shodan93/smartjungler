@@ -15,7 +15,7 @@ CHAT_REGION = {
 }
 
 # ---- Scan / Loop -------------------------------------------
-SCAN_INTERVAL = 0.4          # Sekunden zwischen OCR-Scans
+SCAN_INTERVAL = 0.3          # Sekunden zwischen OCR-Scans (schneller = flotter)
 SCAN_ENABLED_DEFAULT = False  # OCR beim Start aus (erst zum Testen GUI)
 
 # ---- Summoner-Spell Cooldowns (Sekunden) -------------------
@@ -42,9 +42,10 @@ FUZZY_CUTOFF = 0.7
 
 # --- Schnelle Bestätigung gegen OCR-Aussetzer ---
 # Ein Champion-Flash wird getrackt, sobald er MIN_SIGHTINGS-mal innerhalb
-# von CONFIRM_WINDOW Sekunden gelesen wurde. Klein = schnell, aber etwas
-# anfälliger für Fehllesungen; größer = sicherer, aber träger.
-CONFIRM_WINDOW = 2.5   # Sekunden-Fenster für die Bestätigung
+# von CONFIRM_WINDOW Sekunden gelesen wurde. Fenster großzügig, damit auch
+# verstreute Lesungen zusammenzählen (sonst dauert die Erkennung lange).
+# Für SOFORT-Erkennung MIN_SIGHTINGS auf 1 setzen (mehr Fehltreffer-Risiko).
+CONFIRM_WINDOW = 6.0   # Sekunden-Fenster für die Bestätigung
 MIN_SIGHTINGS  = 2     # nötige Sichtungen desselben Champs im Fenster
 
 # Timer nur für Zeilen MIT erkennbarem Timestamp (kill für Hintergrund-Müll)
