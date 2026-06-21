@@ -3,10 +3,12 @@
 Schwere Abhängigkeiten (mss, cv2, pytesseract) werden erst beim Start
 des Scans importiert, damit die GUI auch ohne sie läuft.
 
-Dedup-Strategie:
-  - Jedes Event hat einen Game-Timestamp. Dieselbe Stamp + Champ + Spell
-    + Sicherheit wird nur EINMAL verarbeitet (verhindert Doppel-Zählen
-    bei wiederholtem Lesen oder verblassenden Zeilen).
+Dedup- & Bestätigungs-Strategie:
+  - Jedes Event hat einen Game-Timestamp. Ein (stamp, champ, spell,
+    certain) muss in MIN_SIGHTINGS Scans gesehen werden, bevor ein Timer
+    startet — das filtert einmalige OCR-Fehllesungen heraus, während
+    echte (mehrfach gelesene) Zeilen durchkommen.
+  - Danach wird dasselbe Event nicht erneut gezählt (kein Doppel-Zählen).
   - Ein "used"-Event (sicher) hat eine andere Sicherheit als ein Ping und
     darf daher eine vorhandene Schätzung überschreiben.
 """
@@ -22,7 +24,12 @@ class Scanner:
         self._enabled = False
         self._running = False
         self.status = "aus"
-        self.processed = set()            # (stamp, champ, spell, certain)
+        self.sightings = {}               # key -> Anzahl Sichtungen
+        self.committed = set()            # bereits getrackte keys
+
+    def reset(self):
+        self.sightings.clear()
+        self.committed.clear()
 
     def is_enabled(self):
         return self._enabled
@@ -55,7 +62,7 @@ class Scanner:
         from capture import capture_chat
         from ocr import read_chat
         from parser import parse_chat
-        from config import SCAN_INTERVAL
+        from config import SCAN_INTERVAL, MIN_SIGHTINGS
 
         while self._running:
             if not self._enabled:
@@ -66,10 +73,14 @@ class Scanner:
                 for e in parse_chat(text):
                     stamp = e.get("stamp")
                     key = (stamp, e["champion"], e["spell"], e["certain"])
-                    if stamp and key in self.processed:
+                    if key in self.committed:
                         continue
-                    if stamp:
-                        self.processed.add(key)
+                    # Bestätigung sammeln: erst nach MIN_SIGHTINGS Scans
+                    # wird der Timer gesetzt (filtert OCR-Aussetzer).
+                    self.sightings[key] = self.sightings.get(key, 0) + 1
+                    if self.sightings[key] < MIN_SIGHTINGS:
+                        continue
+                    self.committed.add(key)
                     changed = self.manager.add(
                         e["champion"], e["spell"], e["cooldown"],
                         certain=e["certain"], stamp=stamp,

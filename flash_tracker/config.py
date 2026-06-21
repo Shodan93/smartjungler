@@ -40,6 +40,12 @@ SPELLS = list(SPELL_COOLDOWNS.keys())
 # Höher = strenger (weniger Fehltreffer, aber mehr verworfene Reads).
 FUZZY_CUTOFF = 0.7
 
+# Bestätigung gegen OCR-Aussetzer: ein Flash muss in so vielen Scans
+# (für denselben Champ+Timestamp) gesehen werden, bevor ein Timer
+# startet. Echte Chat-Zeilen werden dutzendfach gelesen, einmalige
+# Fehllesungen verschwinden. Höher = weniger Fehlalarme, etwas träger.
+MIN_SIGHTINGS = 3
+
 # Zeilen, die einen dieser Texte enthalten, werden ignoriert
 # (Countdown-/Erinnerungs-Pings, keine frischen Flashes).
 IGNORE_PHRASES = ["wait for", "has selected", "quest complete", "/help"]

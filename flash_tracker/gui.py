@@ -177,7 +177,7 @@ class FlashTrackerGUI:
 
     def reset(self):
         self.manager.reset()
-        self.scanner.processed.clear()
+        self.scanner.reset()
         self._last_clip = None
         self._flash_status("Alle Timer zurückgesetzt")
 
