@@ -35,6 +35,15 @@ SPELL_COOLDOWNS = {
 # Reihenfolge der Spells im GUI-Dropdown.
 SPELLS = list(SPELL_COOLDOWNS.keys())
 
+# ---- Erkennung / Parsing -----------------------------------
+# Ähnlichkeits-Schwelle fürs Champion-Fuzzy-Matching (0..1).
+# Höher = strenger (weniger Fehltreffer, aber mehr verworfene Reads).
+FUZZY_CUTOFF = 0.7
+
+# Zeilen, die einen dieser Texte enthalten, werden ignoriert
+# (Countdown-/Erinnerungs-Pings, keine frischen Flashes).
+IGNORE_PHRASES = ["wait for", "has selected", "quest complete", "/help"]
+
 # ---- GUI-Fenster -------------------------------------------
 WINDOW_X = 2150
 WINDOW_Y = 80
