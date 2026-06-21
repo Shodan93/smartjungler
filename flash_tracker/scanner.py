@@ -106,17 +106,21 @@ class Scanner:
             champ, spell, certain = key
             cd = SPELL_COOLDOWNS.get(spell, 300)
             elapsed = 0
+            up_game = None
             if TIMING_FROM_STAMP:
                 stamp = Counter(s for _, s in lst).most_common(1)[0][0]
                 ssec = stamp_seconds(stamp)
-                if ssec is not None and self.game_now:
-                    elapsed = max(0, self.game_now - ssec)
+                if ssec is not None:
+                    up_game = ssec + cd            # Spielzeit, wann wieder up
+                    if self.game_now:
+                        elapsed = max(0, self.game_now - ssec)
 
             self.committed.add(key)
             if elapsed >= cd:
                 self.last_decision = f"{champ} {spell}: schon up (übersprungen)"
                 continue
-            changed = self.manager.add(champ, spell, cd, certain=certain, elapsed=elapsed)
+            changed = self.manager.add(champ, spell, cd, certain=certain,
+                                       elapsed=elapsed, up_game=up_game)
             self.last_decision = (
                 f"{champ} {spell} ({'used' if certain else 'ping'}, -{int(elapsed)}s)"
             )

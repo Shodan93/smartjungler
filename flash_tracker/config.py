@@ -67,10 +67,13 @@ AUTO_COPY_DEFAULT = False
 
 # ---- Chat-Tippen (Windows) ---------------------------------
 # Da League kein Einfügen erlaubt, werden die Timer per Tastendruck
-# ins Chatfenster getippt. League muss dabei im Vordergrund sein.
-# Hotkey: am besten eine in LoL UNBELEGTE Taste wählen (Standard F8).
-CHAT_TYPE_HOTKEY  = "f8"
-PASTE_TO_ALL_CHAT = False   # True = All-Chat (Shift+Enter)
+# ins Chatfenster getippt. Hotkey: in LoL unbelegte Taste wählen.
+CHAT_TYPE_HOTKEY  = "z"
+# Chat ist beim Drücken bereits OFFEN -> Trigger-Zeichen ('z') wird per
+# Backspace entfernt, kein Enter zum Öffnen.
+CHAT_ALREADY_OPEN = True
+CHAT_AUTO_SEND    = True    # nach dem Tippen automatisch mit Enter absenden
+PASTE_TO_ALL_CHAT = False   # True = All-Chat (Shift+Enter); nur ohne ALREADY_OPEN
 
 # ---- Minimal-HUD -------------------------------------------
 HUD_X = 1150

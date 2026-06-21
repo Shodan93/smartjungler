@@ -150,7 +150,7 @@ class FlashTrackerGUI:
 
         # Hinweis zum Chat-Tippen per Hotkey.
         hk = CHAT_TYPE_HOTKEY.upper()
-        hint = (f"[{hk}] tippt Timer in den League-Chat (League muss aktiv sein)"
+        hint = (f"Chat offen + [{hk}] -> tippt Timer als Spielzeit ins Chatfenster"
                 if HAS_WIN_INPUT else
                 "Chat-Tippen nur unter Windows verfügbar")
         tk.Label(self.root, text=hint, bg=BG, fg=DIM, font=("Consolas", 9),
@@ -189,15 +189,18 @@ class FlashTrackerGUI:
             self._flash_status("Champion-Name eingeben")
             return
         cd = SPELL_COOLDOWNS.get(spell, 300)
+        up = (self.scanner.game_now + cd) if self.scanner.game_now else None
         # Manuell = sicher (überschreibt eine evtl. unsichere Schätzung).
-        self.manager.add(champ, spell, cd, certain=True)
+        self.manager.add(champ, spell, cd, certain=True, up_game=up)
         self.champ_var.set("")
         self._flash_status(f"{champ} {spell} hinzugefügt")
 
     def add_demo(self):
         champ = random.choice(DEMO_CHAMPS)
         spell = random.choice(["flash", "ignite", "teleport"])
-        self.manager.add(champ, spell, SPELL_COOLDOWNS[spell], certain=True)
+        cd = SPELL_COOLDOWNS[spell]
+        up = (self.scanner.game_now + cd) if self.scanner.game_now else None
+        self.manager.add(champ, spell, cd, certain=True, up_game=up)
         self.alert.trigger()
         self._flash_status(f"Demo: {champ} {spell}")
 
