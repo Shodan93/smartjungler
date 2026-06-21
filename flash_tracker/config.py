@@ -8,7 +8,7 @@
 # Bereich, der per OCR gescannt wird. Bei 2560x1440 liegt der
 # Chat unten links. Werte ggf. mit calibrate.py anpassen.
 CHAT_REGION = {
-    "top":    820,    # Startpunkt Y  (20px tiefer -> erste Chat-Zeile wird erfasst)
+    "top":    840,    # Startpunkt Y  (nochmal 20px tiefer -> neueste/unterste Zeile wird erfasst)
     "left":   0,      # Startpunkt X
     "width":  1050,   # Breite des Chatfensters
     "height": 240,    # Höhe des Chatfensters
