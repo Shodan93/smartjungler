@@ -63,10 +63,25 @@ def run_region(secs):
     cv2.imwrite("debug_processed.png", preprocess(img))
     print("Gespeichert: debug_raw.png  und  debug_processed.png")
 
+    from config import OCR_USE_WORDLIST, IGNORE_PHRASES
+    print("OCR-Wortliste aktiv:", OCR_USE_WORDLIST)
+
     text = read_chat(img)
-    print("\n----- OCR-TEXT -----")
+    print("\n----- OCR-TEXT (roh) -----")
     print(text if text.strip() else "(nichts erkannt)")
-    print("--------------------")
+    print("--------------------------")
+
+    print("\n----- Zeilen-Analyse -----")
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        low = line.lower()
+        ign = next((p for p in IGNORE_PHRASES if p in low), None)
+        if ign:
+            print(f"  IGNORIERT (enthält '{ign}'): {line!r}")
+        else:
+            print(f"  geprüft: {line!r}")
+    print("--------------------------")
 
     events = parse_chat(text)
     print("\nErkannte Spell-Pings:")

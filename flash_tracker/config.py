@@ -60,7 +60,9 @@ OCR_CONFIG       = "--psm 6"  # Tesseract Page Segmentation Mode
 
 # Champion-/Spell-Wortliste an Tesseract übergeben (bessere Erkennung).
 # Datei muss im Arbeitsverzeichnis liegen (kein Leerzeichen im Namen!).
-OCR_USE_WORDLIST  = True
+# Vorerst aus: manche Tesseract-Versionen liefern damit leeren Text.
+# Das Fuzzy-Matching gegen die Champion-Liste übernimmt die Korrektur.
+OCR_USE_WORDLIST  = False
 OCR_WORDLIST_FILE = "champion_words.txt"
 
 # Windows: Pfad zur Tesseract-Executable.
