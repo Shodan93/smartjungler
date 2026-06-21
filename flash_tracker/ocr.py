@@ -4,7 +4,7 @@ import numpy as np
 import pytesseract
 from PIL import Image
 from config import (
-    OCR_SCALE_FACTOR, OCR_CONFIG, TESSERACT_CMD,
+    OCR_SCALE_FACTOR, OCR_CONFIG, TESSERACT_CMD, OCR_THRESHOLD,
     OCR_USE_WORDLIST, OCR_WORDLIST_FILE,
 )
 
@@ -22,16 +22,21 @@ _wordlist_ok = True
 
 
 def preprocess(img):
-    """Graustufen -> Upscale -> Threshold (heller Text auf dunkel)."""
+    """Value-Kanal -> Upscale -> Threshold.
+
+    Statt Luminanz nutzen wir den Helligkeits-(Value-)Kanal = max(B,G,R).
+    Damit werden auch FARBIGE Namen (rot/orange, z.B. Anivia & Gegner)
+    hell und sauber lesbar — Graustufen hatten rote Schrift zerlegt.
+    """
     if img.shape[-1] == 4:
         img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    h, w = gray.shape
+    value = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[:, :, 2]   # = max der Kanäle
+    h, w = value.shape
     scaled = cv2.resize(
-        gray, (w * OCR_SCALE_FACTOR, h * OCR_SCALE_FACTOR),
-        interpolation=cv2.INTER_LINEAR,
+        value, (w * OCR_SCALE_FACTOR, h * OCR_SCALE_FACTOR),
+        interpolation=cv2.INTER_CUBIC,
     )
-    _, thresh = cv2.threshold(scaled, 100, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(scaled, OCR_THRESHOLD, 255, cv2.THRESH_BINARY)
     return thresh
 
 

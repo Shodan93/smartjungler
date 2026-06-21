@@ -40,10 +40,10 @@ def main():
                 f"{e['champion']}{'!' if e['certain'] else '?'}@{e['stamp']}"
                 for e in events
             )
-            scanner._ingest(events)
-            scanner._decide()
+            scanner.process(events)
 
-            line = f"[Scan {scan_no:>4}] Lesarten: {reads or '—'}"
+            line = (f"[Scan {scan_no:>4}] Spielzeit~{scanner.game_now//60}:"
+                    f"{scanner.game_now % 60:02d} | Lesarten: {reads or '—'}")
             if scanner.last_decision and scanner.last_decision != last_decision:
                 line += f"   >>> ENTSCHEIDUNG: {scanner.last_decision}"
                 last_decision = scanner.last_decision

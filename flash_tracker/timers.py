@@ -2,13 +2,15 @@ import time
 
 
 class SpellTimer:
-    def __init__(self, champion, spell, cooldown, certain=False, stamp=None):
+    def __init__(self, champion, spell, cooldown, certain=False, stamp=None, elapsed=0):
         self.champion = champion
         self.spell = spell
         self.cooldown = cooldown
         self.certain = certain      # True = "used" (sicher), False = Ping
         self.stamp = stamp          # Game-Timestamp der ersten Sichtung
-        self.started = time.time()
+        # elapsed = bereits vergangene Sekunden (aus dem Chat-Timestamp),
+        # damit alte Flashes mit korrekter Restzeit starten.
+        self.started = time.time() - elapsed
 
     def remaining(self):
         elapsed = time.time() - self.started
@@ -37,14 +39,13 @@ class TimerManager:
     def __init__(self):
         self.timers = {}  # key: "champion_spell"
 
-    def add(self, champion, spell, cooldown, certain=False, stamp=None):
+    def add(self, champion, spell, cooldown, certain=False, stamp=None, elapsed=0):
         """Fügt einen Timer hinzu / aktualisiert ihn.
 
         Regeln:
-          - Läuft schon ein Timer: gleiche/niedrigere Sicherheit -> ignorieren
-            (die erste Sichtung/Stamp gewinnt, kein Doppel-Zählen).
-          - "used" (certain) überschreibt eine reine Ping-Schätzung und
-            startet den Timer als sicher neu (das bestätigte Event gilt).
+          - Läuft schon ein Timer: gleiche/niedrigere Sicherheit -> ignorieren.
+          - "used" (certain) überschreibt eine reine Ping-Schätzung.
+          - elapsed = bereits vergangene Sekunden (aus dem Timestamp).
 
         Returns:
             True, wenn ein Timer neu gesetzt/überschrieben wurde.
@@ -53,14 +54,14 @@ class TimerManager:
         cur = self.timers.get(key)
         if cur and not cur.is_done():
             if certain and not cur.certain:
-                self.timers[key] = SpellTimer(champion, spell, cooldown, True, stamp)
-                print(f"[TIMER] {champion} {spell} BESTÄTIGT (used) — überschreibt Ping")
+                self.timers[key] = SpellTimer(champion, spell, cooldown, True, stamp, elapsed)
+                print(f"[TIMER] {champion} {spell} BESTÄTIGT (used)")
                 return True
             return False  # bereits getrackt
 
-        self.timers[key] = SpellTimer(champion, spell, cooldown, certain, stamp)
-        tag = "used/sicher" if certain else "Ping"
-        print(f"[TIMER] {champion} {spell} ({tag}) — {cooldown}s")
+        self.timers[key] = SpellTimer(champion, spell, cooldown, certain, stamp, elapsed)
+        tag = "used" if certain else "ping"
+        print(f"[TIMER] {champion} {spell} ({tag}, -{int(elapsed)}s)")
         return True
 
     def reset(self):

@@ -1,43 +1,41 @@
-"""OCR-Scanner als Hintergrund-Thread mit Mehrheits-Abstimmung.
+"""OCR-Scanner — schnell & robust.
 
-Problem: einzelne OCR-Scans liefern manchmal Fantasien (falsche Champs)
-oder verpassen einen Read. Lösung: Jede Chat-Zeile ist über ihren
-Game-Timestamp eindeutig. Wir sammeln über ein kurzes Zeitfenster ALLE
-Champion-Lesarten für denselben (Timestamp, Spell, Sicherheit) und
-übernehmen am Ende die HÄUFIGSTE Lesart — sofern sie oft genug gesehen
-wurde. Dadurch:
-  - einmalige Fehllesungen ("Fantasien") bleiben in der Minderheit -> raus
-  - echte Flashes kommen durch, auch wenn einzelne Reads daneben liegen
+Erkennung (champion-zentriert, schnell):
+  - Ein (Champion, Spell, Sicherheit) wird getrackt, sobald er
+    MIN_SIGHTINGS-mal innerhalb von CONFIRM_WINDOW Sekunden gelesen wurde.
+    -> reagiert in ~1 s, filtert einmalige Fehllesungen ("Fantasien").
+  - Nur Zeilen mit Timestamp zählen (Hintergrund-Müll fällt weg).
 
-Schwere Abhängigkeiten (mss, cv2, pytesseract) werden erst beim Start
-des Scans importiert, damit die GUI auch ohne sie läuft.
+Zeiten (aus dem Chat-Timestamp):
+  - Aktuelle Spielzeit = höchster gesehener Timestamp.
+  - Restzeit = Cooldown - (Spielzeit - Flash-Timestamp).
+  - Bereits abgelaufene (alte History-)Flashes werden übersprungen.
+
+Re-Flash: sobald ein Timer abgelaufen ist, kann derselbe Champ erneut
+getrackt werden.
 """
 import time
 import threading
 from collections import Counter
 
 
-class _Slot:
-    """Sammelt Champion-Stimmen für eine Chat-Zeile (= ein Timestamp)."""
-    def __init__(self):
-        self.votes = Counter()
-        self.first_seen = time.time()
-        self.committed = False
-
-
 class Scanner:
     def __init__(self, manager, on_event=None):
         self.manager = manager
-        self.on_event = on_event          # Callback(champion, spell)
+        self.on_event = on_event
         self._thread = None
         self._enabled = False
         self._running = False
         self.status = "aus"
-        self.slots = {}                   # (stamp, spell, certain) -> _Slot
-        self.last_decision = ""           # für Debug-Anzeige
+        self.sightings = {}      # (champ, spell, certain) -> list[(t, stamp)]
+        self.committed = set()
+        self.game_now = 0        # höchste gesehene Spielzeit (Sekunden)
+        self.last_decision = ""
 
     def reset(self):
-        self.slots.clear()
+        self.sightings.clear()
+        self.committed.clear()
+        self.game_now = 0
         self.last_decision = ""
 
     def is_enabled(self):
@@ -55,7 +53,6 @@ class Scanner:
             self._enabled = False
             self.status = f"Fehler: {e}"
             return False, str(e)
-
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -67,42 +64,61 @@ class Scanner:
         self._running = False
         self.status = "aus"
 
-    def _ingest(self, events):
-        """Eine Liste geparster Events in die Stimm-Sammlung einsortieren."""
-        from config import REQUIRE_STAMP
-        for e in events:
-            stamp = e.get("stamp")
-            if REQUIRE_STAMP and not stamp:
-                continue
-            slot_key = (stamp, e["spell"], e["certain"])
-            slot = self.slots.get(slot_key)
-            if slot is None:
-                slot = self.slots[slot_key] = _Slot()
-            if not slot.committed:
-                slot.votes[e["champion"]] += 1
+    def _update_clock(self, events):
+        from parser import stamp_seconds
+        secs = [stamp_seconds(e["stamp"]) for e in events]
+        secs = [x for x in secs if x is not None]
+        if not secs:
+            return
+        cand = max(secs)
+        # Nur vorwärts und keine absurden Sprünge (Schutz vor Stempel-Jitter).
+        if self.game_now == 0 or 0 < cand - self.game_now <= 90:
+            self.game_now = cand
 
-    def _decide(self):
-        """Abgelaufene Stimm-Fenster auswerten und Timer setzen."""
-        from config import VOTE_WINDOW, MIN_VOTES, SPELL_COOLDOWNS
+    def process(self, events):
+        """Events einsortieren und fällige Timer setzen (auch vom Debug-Tool)."""
+        from config import (CONFIRM_WINDOW, MIN_SIGHTINGS, REQUIRE_STAMP,
+                            TIMING_FROM_STAMP, SPELL_COOLDOWNS)
+        from parser import stamp_seconds
         now = time.time()
-        for (stamp, spell, certain), slot in self.slots.items():
-            if slot.committed:
+
+        self._update_clock(events)
+
+        for e in events:
+            if REQUIRE_STAMP and not e["stamp"]:
                 continue
-            if now - slot.first_seen < VOTE_WINDOW:
+            key = (e["champion"], e["spell"], e["certain"])
+            self.sightings.setdefault(key, []).append((now, e["stamp"]))
+
+        # Abgelaufene Timer aus 'committed' entfernen -> Re-Flash möglich.
+        active = {f"{t.champion}_{t.spell}" for t in self.manager.get_active()}
+        self.committed = {k for k in self.committed if f"{k[0]}_{k[1]}" in active}
+
+        for key in list(self.sightings.keys()):
+            lst = [(t, s) for (t, s) in self.sightings[key] if now - t <= CONFIRM_WINDOW]
+            if not lst:
+                del self.sightings[key]
                 continue
-            if not slot.votes:
-                slot.committed = True
+            self.sightings[key] = lst
+            if key in self.committed or len(lst) < MIN_SIGHTINGS:
                 continue
-            champ, count = slot.votes.most_common(1)[0]
-            slot.committed = True
-            if count < MIN_VOTES:
-                self.last_decision = f"verworfen: {champ}? ({count} Stimmen)"
-                continue
+
+            champ, spell, certain = key
             cd = SPELL_COOLDOWNS.get(spell, 300)
-            changed = self.manager.add(champ, spell, cd, certain=certain, stamp=stamp)
+            elapsed = 0
+            if TIMING_FROM_STAMP:
+                stamp = Counter(s for _, s in lst).most_common(1)[0][0]
+                ssec = stamp_seconds(stamp)
+                if ssec is not None and self.game_now:
+                    elapsed = max(0, self.game_now - ssec)
+
+            self.committed.add(key)
+            if elapsed >= cd:
+                self.last_decision = f"{champ} {spell}: schon up (übersprungen)"
+                continue
+            changed = self.manager.add(champ, spell, cd, certain=certain, elapsed=elapsed)
             self.last_decision = (
-                f"{champ} {spell} "
-                f"({'used' if certain else 'ping'}, {count} Stimmen)"
+                f"{champ} {spell} ({'used' if certain else 'ping'}, -{int(elapsed)}s)"
             )
             if changed and self.on_event:
                 self.on_event(champ, spell)
@@ -119,8 +135,7 @@ class Scanner:
                 continue
             try:
                 text = read_chat(capture_chat())
-                self._ingest(parse_chat(text))
-                self._decide()
+                self.process(parse_chat(text))
                 self.status = "aktiv"
             except Exception as e:
                 self.status = f"Fehler: {e}"

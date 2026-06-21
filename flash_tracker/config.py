@@ -15,7 +15,7 @@ CHAT_REGION = {
 }
 
 # ---- Scan / Loop -------------------------------------------
-SCAN_INTERVAL = 0.5          # Sekunden zwischen OCR-Scans
+SCAN_INTERVAL = 0.4          # Sekunden zwischen OCR-Scans
 SCAN_ENABLED_DEFAULT = False  # OCR beim Start aus (erst zum Testen GUI)
 
 # ---- Summoner-Spell Cooldowns (Sekunden) -------------------
@@ -40,15 +40,20 @@ SPELLS = list(SPELL_COOLDOWNS.keys())
 # Höher = strenger (weniger Fehltreffer, aber mehr verworfene Reads).
 FUZZY_CUTOFF = 0.7
 
-# --- Mehrheits-Abstimmung gegen OCR-Fehler ---
-# Pro Chat-Zeile (per Timestamp identifiziert) sammeln wir über ein
-# kurzes Zeitfenster ALLE Champion-Lesarten und übernehmen am Ende die
-# häufigste. Das filtert "Fantasien" (einmalige Fehllesungen) UND fängt
-# echte Flashes, selbst wenn einzelne Reads daneben liegen.
-VOTE_WINDOW = 1.6     # Sekunden sammeln, bevor entschieden wird
-MIN_VOTES   = 2       # so oft muss der Gewinner-Champ gelesen worden sein
+# --- Schnelle Bestätigung gegen OCR-Aussetzer ---
+# Ein Champion-Flash wird getrackt, sobald er MIN_SIGHTINGS-mal innerhalb
+# von CONFIRM_WINDOW Sekunden gelesen wurde. Klein = schnell, aber etwas
+# anfälliger für Fehllesungen; größer = sicherer, aber träger.
+CONFIRM_WINDOW = 2.5   # Sekunden-Fenster für die Bestätigung
+MIN_SIGHTINGS  = 2     # nötige Sichtungen desselben Champs im Fenster
+
 # Timer nur für Zeilen MIT erkennbarem Timestamp (kill für Hintergrund-Müll)
 REQUIRE_STAMP = True
+
+# Restzeit aus dem Chat-Timestamp berechnen statt immer 5:00:
+#   Restzeit = Cooldown - (aktuelle Spielzeit - Flash-Zeitstempel)
+# Macht Zeiten korrekt und überspringt automatisch alte History-Flashes.
+TIMING_FROM_STAMP = True
 
 # Zeilen, die einen dieser Texte enthalten, werden ignoriert
 # (Countdown-/Erinnerungs-Pings, keine frischen Flashes).
@@ -81,6 +86,9 @@ ALWAYS_ON_TOP_DEFAULT = True
 # ---- OCR Preprocessing -------------------------------------
 OCR_SCALE_FACTOR = 3          # Bild vergrößern für bessere OCR-Genauigkeit
 OCR_CONFIG       = "--psm 6"  # Tesseract Page Segmentation Mode
+# Schwellwert fürs Schwarz-Weiß. Wir nutzen den Helligkeits-(Value-)Kanal,
+# damit auch farbige Namen (rot/orange) sauber lesbar werden.
+OCR_THRESHOLD    = 110
 
 # Champion-/Spell-Wortliste an Tesseract übergeben (bessere Erkennung).
 # Datei muss im Arbeitsverzeichnis liegen (kein Leerzeichen im Namen!).

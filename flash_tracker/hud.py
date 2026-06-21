@@ -21,8 +21,8 @@ class MiniHUD:
         self.win.geometry(f"+{HUD_X}+{HUD_Y}")
 
         self.text = tk.Text(
-            self.win, width=16, height=6, bg=BG, fg="#00ff88",
-            font=("Consolas", 16, "bold"), bd=0, padx=10, pady=8,
+            self.win, width=28, height=9, bg=BG, fg="#00ff88",
+            font=("Consolas", 11, "bold"), bd=0, padx=10, pady=8,
             highlightthickness=0, cursor="fleur", wrap="none",
         )
         self.text.pack(fill="both", expand=True)

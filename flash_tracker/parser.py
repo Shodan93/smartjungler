@@ -20,6 +20,17 @@ CALL_PATTERN = re.compile(
 STAMP_PATTERN = re.compile(r"\b(\d{1,2}:\d{2})\b")
 
 
+def stamp_seconds(stamp):
+    """'21:48' -> 1308 Sekunden. None bei ungültigem Stempel."""
+    if not stamp:
+        return None
+    try:
+        m, s = stamp.split(":")
+        return int(m) * 60 + int(s)
+    except Exception:
+        return None
+
+
 def _norm(s):
     return re.sub(r"[^a-z]", "", s.lower())
 
