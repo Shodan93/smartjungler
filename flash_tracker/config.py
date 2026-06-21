@@ -44,6 +44,11 @@ FUZZY_CUTOFF = 0.7
 # (Countdown-/Erinnerungs-Pings, keine frischen Flashes).
 IGNORE_PHRASES = ["wait for", "has selected", "quest complete", "/help"]
 
+# ---- Auto-Copy ---------------------------------------------
+# Schreibt die laufenden Timer automatisch & laufend in die
+# Zwischenablage (du musst nur noch Strg+V im Chat drücken).
+AUTO_COPY_DEFAULT = True
+
 # ---- GUI-Fenster -------------------------------------------
 WINDOW_X = 2150
 WINDOW_Y = 80
@@ -52,6 +57,11 @@ ALWAYS_ON_TOP_DEFAULT = True
 # ---- OCR Preprocessing -------------------------------------
 OCR_SCALE_FACTOR = 3          # Bild vergrößern für bessere OCR-Genauigkeit
 OCR_CONFIG       = "--psm 6"  # Tesseract Page Segmentation Mode
+
+# Champion-/Spell-Wortliste an Tesseract übergeben (bessere Erkennung).
+# Datei muss im Arbeitsverzeichnis liegen (kein Leerzeichen im Namen!).
+OCR_USE_WORDLIST  = True
+OCR_WORDLIST_FILE = "champion_words.txt"
 
 # Windows: Pfad zur Tesseract-Executable.
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"

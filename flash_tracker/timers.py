@@ -2,10 +2,12 @@ import time
 
 
 class SpellTimer:
-    def __init__(self, champion, spell, cooldown):
+    def __init__(self, champion, spell, cooldown, certain=False, stamp=None):
         self.champion = champion
         self.spell = spell
         self.cooldown = cooldown
+        self.certain = certain      # True = "used" (sicher), False = Ping
+        self.stamp = stamp          # Game-Timestamp der ersten Sichtung
         self.started = time.time()
 
     def remaining(self):
@@ -16,14 +18,14 @@ class SpellTimer:
         return self.remaining() <= 0
 
     def mmss(self):
-        """Verbleibende Zeit als (Minuten, Sekunden)."""
         r = int(round(self.remaining()))
         return r // 60, r % 60
 
     def display(self):
         m, s = self.mmss()
-        spell_icon = "⚡" if self.spell == "flash" else "•"
-        return f"{self.champion} {spell_icon} {self.spell.capitalize()} — {m}:{s:02d}"
+        icon = "⚡" if self.spell == "flash" else "•"
+        mark = "" if self.certain else " ?"   # ? = nur Ping/Schätzung
+        return f"{self.champion} {icon} {self.spell.capitalize()} — {m}:{s:02d}{mark}"
 
     def chat_format(self):
         """Authentisches Chat-Format, alles klein: 'jhin 2 40'."""
@@ -35,12 +37,31 @@ class TimerManager:
     def __init__(self):
         self.timers = {}  # key: "champion_spell"
 
-    def add(self, champion, spell, cooldown):
+    def add(self, champion, spell, cooldown, certain=False, stamp=None):
+        """Fügt einen Timer hinzu / aktualisiert ihn.
+
+        Regeln:
+          - Läuft schon ein Timer: gleiche/niedrigere Sicherheit -> ignorieren
+            (die erste Sichtung/Stamp gewinnt, kein Doppel-Zählen).
+          - "used" (certain) überschreibt eine reine Ping-Schätzung und
+            startet den Timer als sicher neu (das bestätigte Event gilt).
+
+        Returns:
+            True, wenn ein Timer neu gesetzt/überschrieben wurde.
+        """
         key = f"{champion}_{spell}"
-        # Nicht überschreiben, wenn bereits ein laufender Timer existiert.
-        if key not in self.timers or self.timers[key].is_done():
-            self.timers[key] = SpellTimer(champion, spell, cooldown)
-            print(f"[TIMER] {champion} {spell} — {cooldown}s")
+        cur = self.timers.get(key)
+        if cur and not cur.is_done():
+            if certain and not cur.certain:
+                self.timers[key] = SpellTimer(champion, spell, cooldown, True, stamp)
+                print(f"[TIMER] {champion} {spell} BESTÄTIGT (used) — überschreibt Ping")
+                return True
+            return False  # bereits getrackt
+
+        self.timers[key] = SpellTimer(champion, spell, cooldown, certain, stamp)
+        tag = "used/sicher" if certain else "Ping"
+        print(f"[TIMER] {champion} {spell} ({tag}) — {cooldown}s")
+        return True
 
     def reset(self):
         self.timers.clear()
@@ -51,13 +72,8 @@ class TimerManager:
 
     def get_active(self):
         self.cleanup()
-        # Nach verbleibender Zeit sortiert (am dringendsten zuerst).
         return sorted(self.timers.values(), key=lambda t: t.remaining())
 
     def chat_line(self):
-        """Alle laufenden Timer als eine Chat-Zeile.
-
-        Beispiel: 'jhin 2 40, lux 5 39'
-        """
-        active = self.get_active()
-        return ", ".join(t.chat_format() for t in active)
+        """Alle laufenden Timer als eine Chat-Zeile: 'jhin 2 40, lux 5 39'."""
+        return ", ".join(t.chat_format() for t in self.get_active())

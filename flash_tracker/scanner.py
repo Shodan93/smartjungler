@@ -1,9 +1,14 @@
 """OCR-Scanner als Hintergrund-Thread.
 
-Die schweren Abhängigkeiten (mss, cv2, pytesseract) werden erst beim
-Start des Scans importiert. So läuft die GUI auch ohne installiertes
-Tesseract/OpenCV — du kannst alles manuell testen und den OCR-Scan
-nur dann aktivieren, wenn League läuft.
+Schwere Abhängigkeiten (mss, cv2, pytesseract) werden erst beim Start
+des Scans importiert, damit die GUI auch ohne sie läuft.
+
+Dedup-Strategie:
+  - Jedes Event hat einen Game-Timestamp. Dieselbe Stamp + Champ + Spell
+    + Sicherheit wird nur EINMAL verarbeitet (verhindert Doppel-Zählen
+    bei wiederholtem Lesen oder verblassenden Zeilen).
+  - Ein "used"-Event (sicher) hat eine andere Sicherheit als ein Ping und
+    darf daher eine vorhandene Schätzung überschreiben.
 """
 import time
 import threading
@@ -17,17 +22,15 @@ class Scanner:
         self._enabled = False
         self._running = False
         self.status = "aus"
-        self.seen = set()
+        self.processed = set()            # (stamp, champ, spell, certain)
 
     def is_enabled(self):
         return self._enabled
 
     def start(self):
-        """Startet (oder reaktiviert) den Scan-Thread."""
         self._enabled = True
         if self._thread and self._thread.is_alive():
             return True, "Scan aktiv"
-        # Abhängigkeiten erst hier laden.
         try:
             from capture import capture_chat   # noqa: F401
             from ocr import read_chat          # noqa: F401
@@ -61,14 +64,18 @@ class Scanner:
             try:
                 text = read_chat(capture_chat())
                 for e in parse_chat(text):
-                    key = f"{e['champion']}_{e['spell']}"
-                    if key not in self.seen:
-                        self.seen.add(key)
-                        self.manager.add(e["champion"], e["spell"], e["cooldown"])
-                        if self.on_event:
-                            self.on_event(e["champion"], e["spell"])
-                active = {f"{t.champion}_{t.spell}" for t in self.manager.get_active()}
-                self.seen.intersection_update(active)
+                    stamp = e.get("stamp")
+                    key = (stamp, e["champion"], e["spell"], e["certain"])
+                    if stamp and key in self.processed:
+                        continue
+                    if stamp:
+                        self.processed.add(key)
+                    changed = self.manager.add(
+                        e["champion"], e["spell"], e["cooldown"],
+                        certain=e["certain"], stamp=stamp,
+                    )
+                    if changed and self.on_event:
+                        self.on_event(e["champion"], e["spell"])
                 self.status = "aktiv"
             except Exception as e:
                 self.status = f"Fehler: {e}"

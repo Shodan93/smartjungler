@@ -21,6 +21,7 @@ from config import (
     WINDOW_Y,
     ALWAYS_ON_TOP_DEFAULT,
     SCAN_ENABLED_DEFAULT,
+    AUTO_COPY_DEFAULT,
     ALERT_SOUND,
 )
 
@@ -38,10 +39,12 @@ class FlashTrackerGUI:
         self.alert = AlertSystem(ALERT_SOUND)
         self.scanner = Scanner(self.manager, on_event=lambda c, s: self.alert.trigger())
 
+        self._last_clip = None
+
         self.root = tk.Tk()
         self.root.title("Flash Tracker")
         self.root.configure(bg=BG)
-        self.root.geometry(f"320x480+{WINDOW_X}+{WINDOW_Y}")
+        self.root.geometry(f"320x510+{WINDOW_X}+{WINDOW_Y}")
         self.root.attributes("-topmost", ALWAYS_ON_TOP_DEFAULT)
 
         self._build_ui()
@@ -120,6 +123,13 @@ class FlashTrackerGUI:
             activeforeground=FG, font=("Consolas", 10),
         ).pack(side="left", padx=8)
 
+        self.autocopy_var = tk.BooleanVar(value=AUTO_COPY_DEFAULT)
+        tk.Checkbutton(
+            ctrl, text="Auto-Copy", variable=self.autocopy_var,
+            bg=BG, fg=FG, selectcolor="#0a0c10", activebackground=BG,
+            activeforeground=FG, font=("Consolas", 10),
+        ).pack(side="left")
+
         self.status = tk.Label(self.root, text="", bg=BG, fg=DIM,
                                font=("Consolas", 9), anchor="w", padx=12)
         self.status.pack(fill="x", side="bottom", pady=(0, 4))
@@ -153,20 +163,22 @@ class FlashTrackerGUI:
             self._flash_status("Champion-Name eingeben")
             return
         cd = SPELL_COOLDOWNS.get(spell, 300)
-        self.manager.add(champ, spell, cd)
+        # Manuell = sicher (überschreibt eine evtl. unsichere Schätzung).
+        self.manager.add(champ, spell, cd, certain=True)
         self.champ_var.set("")
         self._flash_status(f"{champ} {spell} hinzugefügt")
 
     def add_demo(self):
         champ = random.choice(DEMO_CHAMPS)
         spell = random.choice(["flash", "ignite", "teleport"])
-        self.manager.add(champ, spell, SPELL_COOLDOWNS[spell])
+        self.manager.add(champ, spell, SPELL_COOLDOWNS[spell], certain=True)
         self.alert.trigger()
         self._flash_status(f"Demo: {champ} {spell}")
 
     def reset(self):
         self.manager.reset()
-        self.scanner.seen.clear()
+        self.scanner.processed.clear()
+        self._last_clip = None
         self._flash_status("Alle Timer zurückgesetzt")
 
     def toggle_scan(self):
@@ -190,12 +202,20 @@ class FlashTrackerGUI:
     # ------------------------------------------------- Loop
     def _tick(self):
         timers = self.manager.get_active()
+        line = self.manager.chat_line()
         if timers:
             self.timer_box.config(text="\n".join(t.display() for t in timers))
-            self.preview.config(text="Chat: " + self.manager.chat_line())
+            self.preview.config(text="Chat: " + line)
         else:
             self.timer_box.config(text="— keine Timer —")
             self.preview.config(text="")
+
+        # Auto-Copy: Zwischenablage laufend aktuell halten.
+        if self.autocopy_var.get() and line and line != self._last_clip:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(line)
+            self._last_clip = line
+
         self.root.after(200, self._tick)
 
     def run(self):

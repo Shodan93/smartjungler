@@ -1,40 +1,52 @@
+import os
 import cv2
 import numpy as np
 import pytesseract
 from PIL import Image
-from config import OCR_SCALE_FACTOR, OCR_CONFIG, TESSERACT_CMD
+from config import (
+    OCR_SCALE_FACTOR, OCR_CONFIG, TESSERACT_CMD,
+    OCR_USE_WORDLIST, OCR_WORDLIST_FILE,
+)
 
 # Windows: Pfad zur Tesseract-Executable setzen.
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
+# Optional die Champion-/Spell-Wortliste an Tesseract übergeben.
+# (Dateiname ohne Leerzeichen, im Arbeitsverzeichnis — sonst splittet
+#  pytesseract den Pfad falsch.)
+_config = OCR_CONFIG
+if OCR_USE_WORDLIST and os.path.exists(OCR_WORDLIST_FILE) and " " not in OCR_WORDLIST_FILE:
+    _config = f"{OCR_CONFIG} --user-words {OCR_WORDLIST_FILE}"
+
+_wordlist_ok = True
+
 
 def preprocess(img):
-    """Bereitet das Chat-Bild für die OCR auf.
-
-    - Graustufen
-    - Upscale (bessere Genauigkeit bei kleinem Text)
-    - Threshold (heller Text auf dunklem Hintergrund)
-    """
-    # mss liefert BGRA -> auf 3 Kanäle reduzieren
+    """Graustufen -> Upscale -> Threshold (heller Text auf dunkel)."""
     if img.shape[-1] == 4:
         img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
     h, w = gray.shape
     scaled = cv2.resize(
-        gray,
-        (w * OCR_SCALE_FACTOR, h * OCR_SCALE_FACTOR),
+        gray, (w * OCR_SCALE_FACTOR, h * OCR_SCALE_FACTOR),
         interpolation=cv2.INTER_LINEAR,
     )
-
     _, thresh = cv2.threshold(scaled, 100, 255, cv2.THRESH_BINARY)
     return thresh
 
 
 def read_chat(img):
-    """OCR über das aufbereitete Bild, liefert erkannten Text."""
-    processed = preprocess(img)
-    pil_img = Image.fromarray(processed)
-    text = pytesseract.image_to_string(pil_img, config=OCR_CONFIG)
-    return text
+    """OCR über das aufbereitete Bild, liefert erkannten Text.
+
+    Fällt automatisch auf die Standard-Config zurück, falls die
+    Wortliste Tesseract Probleme bereitet."""
+    global _config, _wordlist_ok
+    pil_img = Image.fromarray(preprocess(img))
+    try:
+        return pytesseract.image_to_string(pil_img, config=_config)
+    except Exception:
+        if _wordlist_ok and _config != OCR_CONFIG:
+            _wordlist_ok = False
+            _config = OCR_CONFIG  # Wortliste verwerfen, ohne sie weiter
+            return pytesseract.image_to_string(pil_img, config=_config)
+        raise
