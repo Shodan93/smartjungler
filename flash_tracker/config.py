@@ -66,8 +66,10 @@ IGNORE_PHRASES = ["wait for", "has selected", "quest complete", "/help"]
 AUTO_COPY_DEFAULT = False
 
 # ---- Chat-Tippen (Windows) ---------------------------------
-# Da League kein Einfügen erlaubt, werden die Timer per Tastendruck
-# ins Chatfenster getippt. Hotkey: in LoL unbelegte Taste wählen.
+# ACHTUNG: League/Vanguard blockt simulierte Tastatureingaben. Das
+# Auto-Tippen funktioniert daher i.d.R. NICHT -> standardmäßig aus.
+# Team-Sharing: Timer am HUD ablesen und selbst tippen.
+CHAT_TYPING_ENABLED = False
 CHAT_TYPE_HOTKEY  = "z"
 # Chat ist beim Drücken bereits OFFEN -> Trigger-Zeichen ('z') wird per
 # Backspace entfernt, kein Enter zum Öffnen.

@@ -15,8 +15,9 @@ class AlertSystem:
             print("[ALERT] pygame nicht verfügbar — Audio deaktiviert")
             return
         try:
+            from paths import resource_path
             pygame.mixer.init()
-            self.sound = pygame.mixer.Sound(sound_path)
+            self.sound = pygame.mixer.Sound(resource_path(sound_path))
         except Exception as e:
             print(f"[ALERT] Sound konnte nicht geladen werden ({e}) — Audio deaktiviert")
             self.sound = None

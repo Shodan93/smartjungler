@@ -148,11 +148,12 @@ class FlashTrackerGUI:
             activeforeground=FG, font=("Consolas", 10),
         ).pack(side="left", padx=8)
 
-        # Hinweis zum Chat-Tippen per Hotkey.
-        hk = CHAT_TYPE_HOTKEY.upper()
-        hint = (f"Chat offen + [{hk}] -> tippt Timer als Spielzeit ins Chatfenster"
-                if HAS_WIN_INPUT else
-                "Chat-Tippen nur unter Windows verfügbar")
+        # Hinweis zum Team-Sharing.
+        from config import CHAT_TYPING_ENABLED
+        if CHAT_TYPING_ENABLED and HAS_WIN_INPUT:
+            hint = f"Chat offen + [{CHAT_TYPE_HOTKEY.upper()}] -> tippt Timer (Spielzeit)"
+        else:
+            hint = "Team-Sharing: Spielzeit am HUD/Liste ablesen u. selbst tippen"
         tk.Label(self.root, text=hint, bg=BG, fg=DIM, font=("Consolas", 9),
                  anchor="w", justify="left", wraplength=300, padx=12).pack(fill="x")
 
@@ -233,7 +234,8 @@ class FlashTrackerGUI:
 
     def _check_hotkey(self):
         """Pollt die Tipp-Taste; tippt bei Tastendruck die Timer in League."""
-        if not HAS_WIN_INPUT or self._hotkey_vk is None:
+        from config import CHAT_TYPING_ENABLED
+        if not CHAT_TYPING_ENABLED or not HAS_WIN_INPUT or self._hotkey_vk is None:
             return
         down = key_down(self._hotkey_vk)
         if down and not self._hotkey_was_down:

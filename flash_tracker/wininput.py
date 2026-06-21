@@ -71,6 +71,23 @@ def press_key(vk):
     _send(vk=vk, flags=KEYEVENTF_KEYUP)
 
 
+VK_CONTROL = 0x11
+
+
+def chord_ctrl(vk):
+    """Strg + Taste (z.B. Strg+A zum Alles-Markieren)."""
+    _send(vk=VK_CONTROL)
+    _send(vk=vk)
+    _send(vk=vk, flags=KEYEVENTF_KEYUP)
+    _send(vk=VK_CONTROL, flags=KEYEVENTF_KEYUP)
+
+
+def is_printable_key(name):
+    """True, wenn die Taste ein Zeichen erzeugt (Buchstabe/Ziffer/Space)."""
+    name = (name or "").strip().lower()
+    return len(name) == 1 or name in ("space", "tab")
+
+
 def type_char(ch):
     """Tippt ein einzelnes Unicode-Zeichen (layout-unabhängig)."""
     code = ord(ch)
