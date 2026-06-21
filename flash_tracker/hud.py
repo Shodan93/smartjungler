@@ -29,6 +29,7 @@ class MiniHUD:
         self.text.tag_config("ready", foreground="#ff5555")   # < 30s
         self.text.tag_config("soon", foreground="#ffcc44")    # < 60s
         self.text.tag_config("ok", foreground="#00ff88")
+        self.text.tag_config("verify", foreground="#888888")  # provisorisch
         self.text.config(state="disabled")
 
         # Verschiebbar machen.
@@ -61,8 +62,11 @@ class MiniHUD:
                 # Champ-Name groß (z.B. "Jhin").
                 line = f"{t.champion} {icon} {m}:{s:02d}{mark}"
                 lines.append(line)
-                rem = t.remaining()
-                tag = "ready" if rem < 30 else ("soon" if rem < 60 else "ok")
+                if not getattr(t, "confirmed", True):
+                    tag = "verify"          # grau, wird noch geprüft
+                else:
+                    rem = t.remaining()
+                    tag = "ready" if rem < 30 else ("soon" if rem < 60 else "ok")
                 self.text.insert("end", line + "\n", tag)
         # Fenster nur so groß wie nötig (Anzahl Flashes + längste Zeile).
         self.text.config(

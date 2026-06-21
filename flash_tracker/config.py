@@ -40,13 +40,13 @@ SPELLS = list(SPELL_COOLDOWNS.keys())
 # Höher = strenger (weniger Fehltreffer, aber mehr verworfene Reads).
 FUZZY_CUTOFF = 0.7
 
-# --- Schnelle Bestätigung gegen OCR-Aussetzer ---
-# Ein Champion-Flash wird getrackt, sobald er MIN_SIGHTINGS-mal innerhalb
-# von CONFIRM_WINDOW Sekunden gelesen wurde. Fenster großzügig, damit auch
-# verstreute Lesungen zusammenzählen (sonst dauert die Erkennung lange).
-# Für SOFORT-Erkennung MIN_SIGHTINGS auf 1 setzen (mehr Fehltreffer-Risiko).
-CONFIRM_WINDOW = 6.0   # Sekunden-Fenster für die Bestätigung
-MIN_SIGHTINGS  = 2     # nötige Sichtungen desselben Champs im Fenster
+# --- Sofort-Erkennung + Selbst-Verifizierung ---
+# Ein Flash erscheint SOFORT beim ersten Read (provisorisch, grau im HUD).
+# Wird er innerhalb von CONFIRM_WINDOW Sekunden insgesamt MIN_SIGHTINGS-mal
+# gelesen -> bestätigt (grün). Wird er nur 1x gesehen (Fantasie) -> nach
+# Ablauf des Fensters automatisch wieder entfernt (Selbstkorrektur).
+CONFIRM_WINDOW = 1.5   # Zeit zum Verifizieren nach der ersten Sichtung
+MIN_SIGHTINGS  = 2     # Reads bis "bestätigt"
 
 # Timer nur für Zeilen MIT erkennbarem Timestamp (kill für Hintergrund-Müll)
 REQUIRE_STAMP = True

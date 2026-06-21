@@ -3,11 +3,12 @@ import time
 
 class SpellTimer:
     def __init__(self, champion, spell, cooldown, certain=False, stamp=None,
-                 elapsed=0, up_game=None):
+                 elapsed=0, up_game=None, confirmed=True):
         self.champion = champion
         self.spell = spell
         self.cooldown = cooldown
         self.certain = certain      # True = "used" (sicher), False = Ping
+        self.confirmed = confirmed  # False = provisorisch (OCR prüft noch)
         self.stamp = stamp          # Game-Timestamp der ersten Sichtung
         # up_game = absolute Spielzeit (Sekunden), wann der Spell WIEDER UP
         # ist. Für den Team-Callout ("jhin 27 30"). None = unbekannt.
@@ -50,8 +51,21 @@ class TimerManager:
     def __init__(self):
         self.timers = {}  # key: "champion_spell"
 
+    def set_confirmed(self, champion, spell, value=True):
+        t = self.timers.get(f"{champion}_{spell}")
+        if t:
+            t.confirmed = value
+
+    def remove(self, champion, spell, only_unconfirmed=False):
+        key = f"{champion}_{spell}"
+        t = self.timers.get(key)
+        if t and (not only_unconfirmed or not t.confirmed):
+            del self.timers[key]
+            return True
+        return False
+
     def add(self, champion, spell, cooldown, certain=False, stamp=None,
-            elapsed=0, up_game=None):
+            elapsed=0, up_game=None, confirmed=True):
         """Fügt einen Timer hinzu / aktualisiert ihn.
 
         Regeln:
@@ -68,13 +82,13 @@ class TimerManager:
         if cur and not cur.is_done():
             if certain and not cur.certain:
                 self.timers[key] = SpellTimer(champion, spell, cooldown, True,
-                                              stamp, elapsed, up_game)
+                                              stamp, elapsed, up_game, confirmed)
                 print(f"[TIMER] {champion} {spell} BESTÄTIGT (used)")
                 return True
             return False  # bereits getrackt
 
         self.timers[key] = SpellTimer(champion, spell, cooldown, certain,
-                                      stamp, elapsed, up_game)
+                                      stamp, elapsed, up_game, confirmed)
         tag = "used" if certain else "ping"
         print(f"[TIMER] {champion} {spell} ({tag}, -{int(elapsed)}s)")
         return True

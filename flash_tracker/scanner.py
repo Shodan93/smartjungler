@@ -1,18 +1,16 @@
-"""OCR-Scanner — schnell & robust.
+"""OCR-Scanner — Sofort-Erkennung mit Selbst-Verifizierung.
 
-Erkennung (champion-zentriert, schnell):
-  - Ein (Champion, Spell, Sicherheit) wird getrackt, sobald er
-    MIN_SIGHTINGS-mal innerhalb von CONFIRM_WINDOW Sekunden gelesen wurde.
-    -> reagiert in ~1 s, filtert einmalige Fehllesungen ("Fantasien").
-  - Nur Zeilen mit Timestamp zählen (Hintergrund-Müll fällt weg).
+Ablauf pro erkanntem (Champion, Spell, Sicherheit):
+  1. ERSTER Read -> Timer wird SOFORT gesetzt (provisorisch, confirmed=False).
+  2. Wird er innerhalb CONFIRM_WINDOW insgesamt MIN_SIGHTINGS-mal gelesen
+     -> bestätigt (confirmed=True).
+  3. Bleibt es bei 1 Read (Fantasie) -> Timer entfernt sich nach Ablauf
+     des Fensters wieder (Selbstkorrektur).
 
-Zeiten (aus dem Chat-Timestamp):
-  - Aktuelle Spielzeit = höchster gesehener Timestamp.
-  - Restzeit = Cooldown - (Spielzeit - Flash-Timestamp).
-  - Bereits abgelaufene (alte History-)Flashes werden übersprungen.
+Zeiten kommen aus dem Chat-Timestamp (Spielzeit, wann der Spell up ist);
+alte History-Flashes (>Cooldown) werden gar nicht erst angezeigt.
 
-Re-Flash: sobald ein Timer abgelaufen ist, kann derselbe Champ erneut
-getrackt werden.
+Schwere Abhängigkeiten werden erst beim Start des Scans importiert.
 """
 import time
 import threading
@@ -27,14 +25,12 @@ class Scanner:
         self._enabled = False
         self._running = False
         self.status = "aus"
-        self.sightings = {}      # (champ, spell, certain) -> list[(t, stamp)]
-        self.committed = set()
-        self.game_now = 0        # höchste gesehene Spielzeit (Sekunden)
+        self.tracks = {}         # (champ, spell, certain) -> dict
+        self.game_now = 0
         self.last_decision = ""
 
     def reset(self):
-        self.sightings.clear()
-        self.committed.clear()
+        self.tracks.clear()
         self.game_now = 0
         self.last_decision = ""
 
@@ -71,61 +67,81 @@ class Scanner:
         if not secs:
             return
         cand = max(secs)
-        # Nur vorwärts und keine absurden Sprünge (Schutz vor Stempel-Jitter).
         if self.game_now == 0 or 0 < cand - self.game_now <= 90:
             self.game_now = cand
 
-    def process(self, events):
-        """Events einsortieren und fällige Timer setzen (auch vom Debug-Tool)."""
-        from config import (CONFIRM_WINDOW, MIN_SIGHTINGS, REQUIRE_STAMP,
-                            TIMING_FROM_STAMP, SPELL_COOLDOWNS)
+    def _timing(self, track, cd):
+        """(elapsed, up_game) aus dem häufigsten Timestamp der Sichtungen."""
+        from config import TIMING_FROM_STAMP
         from parser import stamp_seconds
-        now = time.time()
+        if not TIMING_FROM_STAMP or not track["stamps"]:
+            return 0, None
+        stamp = track["stamps"].most_common(1)[0][0]
+        ssec = stamp_seconds(stamp)
+        if ssec is None:
+            return 0, None
+        up_game = ssec + cd
+        elapsed = max(0, self.game_now - ssec) if self.game_now else 0
+        return elapsed, up_game
 
+    def process(self, events):
+        from config import (CONFIRM_WINDOW, MIN_SIGHTINGS, REQUIRE_STAMP,
+                            SPELL_COOLDOWNS)
+        now = time.time()
         self._update_clock(events)
 
+        # Abgelaufene Timer -> Track zurücksetzen (Re-Flash möglich).
+        active = {f"{t.champion}_{t.spell}" for t in self.manager.get_active()}
+        for key in list(self.tracks):
+            ch, sp, _ = key
+            if self.tracks[key]["committed"] and f"{ch}_{sp}" not in active:
+                del self.tracks[key]
+
+        # --- Sichtungen einsortieren + SOFORT committen ---
         for e in events:
             if REQUIRE_STAMP and not e["stamp"]:
                 continue
             key = (e["champion"], e["spell"], e["certain"])
-            self.sightings.setdefault(key, []).append((now, e["stamp"]))
+            tr = self.tracks.get(key)
+            if tr is None:
+                tr = self.tracks[key] = {
+                    "first": now, "count": 0, "committed": False,
+                    "verified": False, "stamps": Counter(),
+                }
+            tr["count"] += 1
+            if e["stamp"]:
+                tr["stamps"][e["stamp"]] += 1
 
-        # Abgelaufene Timer aus 'committed' entfernen -> Re-Flash möglich.
-        active = {f"{t.champion}_{t.spell}" for t in self.manager.get_active()}
-        self.committed = {k for k in self.committed if f"{k[0]}_{k[1]}" in active}
+            if not tr["committed"]:
+                champ, spell, certain = key
+                cd = SPELL_COOLDOWNS.get(spell, 300)
+                elapsed, up_game = self._timing(tr, cd)
+                tr["committed"] = True
+                if elapsed >= cd and self.game_now:      # längst wieder up
+                    tr["verified"] = True
+                    self.last_decision = f"{champ} {spell}: schon up (übersprungen)"
+                    continue
+                self.manager.add(champ, spell, cd, certain=certain,
+                                 elapsed=elapsed, up_game=up_game, confirmed=False)
+                self.last_decision = f"{champ} {spell}: SOFORT (provisorisch)"
+                if self.on_event:
+                    self.on_event(champ, spell)
 
-        for key in list(self.sightings.keys()):
-            lst = [(t, s) for (t, s) in self.sightings[key] if now - t <= CONFIRM_WINDOW]
-            if not lst:
-                del self.sightings[key]
+        # --- Verifizierung / Selbstkorrektur ---
+        for key in list(self.tracks):
+            tr = self.tracks[key]
+            if not tr["committed"] or tr["verified"]:
                 continue
-            self.sightings[key] = lst
-            if key in self.committed or len(lst) < MIN_SIGHTINGS:
-                continue
-
             champ, spell, certain = key
-            cd = SPELL_COOLDOWNS.get(spell, 300)
-            elapsed = 0
-            up_game = None
-            if TIMING_FROM_STAMP:
-                stamp = Counter(s for _, s in lst).most_common(1)[0][0]
-                ssec = stamp_seconds(stamp)
-                if ssec is not None:
-                    up_game = ssec + cd            # Spielzeit, wann wieder up
-                    if self.game_now:
-                        elapsed = max(0, self.game_now - ssec)
-
-            self.committed.add(key)
-            if elapsed >= cd:
-                self.last_decision = f"{champ} {spell}: schon up (übersprungen)"
-                continue
-            changed = self.manager.add(champ, spell, cd, certain=certain,
-                                       elapsed=elapsed, up_game=up_game)
-            self.last_decision = (
-                f"{champ} {spell} ({'used' if certain else 'ping'}, -{int(elapsed)}s)"
-            )
-            if changed and self.on_event:
-                self.on_event(champ, spell)
+            if tr["count"] >= MIN_SIGHTINGS:
+                tr["verified"] = True
+                self.manager.set_confirmed(champ, spell, True)
+                self.last_decision = f"{champ} {spell}: BESTÄTIGT ({tr['count']}x)"
+            elif now - tr["first"] > CONFIRM_WINDOW:
+                # Nur 1x gesehen -> Fantasie -> provisorischen Timer entfernen.
+                if self.manager.remove(champ, spell, only_unconfirmed=True):
+                    self.last_decision = f"{champ} {spell}: verworfen (nur 1x)"
+                del self.tracks[key]
 
     def _loop(self):
         from capture import capture_chat
