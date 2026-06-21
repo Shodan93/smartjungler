@@ -1,100 +1,121 @@
-# Flash Tracker — League of Legends Summoner Spell Timer
+# Flash Tracker — League of Legends Summoner Spell Timer (GUI)
 
-Scannt den League-Chat per OCR, erkennt Summoner-Spell-Pings
-(`00:06 Scripter02 (Diana): Jhin Flash`), startet automatisch Timer
-und zeigt sie in einem Always-on-Top-Overlay.
+Kleine **GUI**, die Summoner-Spell-Timer verwaltet und sie dir in die
+**Zwischenablage** legt, damit du sie mit **Strg+V** in den League-Chat
+einfügen kannst (League akzeptiert keine simulierten Tastatureingaben —
+deshalb Clipboard statt Auto-Tippen).
 
-Zusätzlich kannst du per Hotkey **alle laufenden Timer authentisch in
-den League-Chat tippen** lassen:
+Format der kopierten Zeile (alles klein, komma-getrennt):
 
 ```
 jhin 2 40, lux 5 39, diana 0 02
 ```
 
-(alles klein, komma-getrennt — sieht aus wie von Hand getippt)
+Optional kann zusätzlich der League-Chat per **OCR** automatisch
+gescannt werden (`00:06 Scripter02 (Diana): Jhin Flash` → Timer startet
+von selbst).
 
 ---
 
-## Voraussetzungen (Windows, 2560×1440)
+## Schnellstart (zum Testen — ganz ohne League/OCR)
 
-1. **Tesseract OCR installieren**
-   https://github.com/UB-Mannheim/tesseract/wiki → Windows-Installer,
-   Standard-Pfad lassen (`C:\Program Files\Tesseract-OCR\`).
-   Falls du einen anderen Pfad wählst: `TESSERACT_CMD` in `config.py` anpassen.
-
-2. **Python-Pakete installieren**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-> Hinweis: Die `keyboard`-Bibliothek braucht unter Windows i.d.R.
-> **Administrator-Rechte**, damit Hotkeys/Tippen im Spiel funktionieren.
-> Starte die Konsole als Administrator.
-
----
-
-## Start (Schnellstart, direkt ins Spiel)
+Du brauchst nur Python. tkinter ist beim normalen Windows-Installer
+bereits dabei.
 
 ```bash
 cd flash_tracker
 python main.py
 ```
 
-Reihenfolge:
+Es öffnet sich ein kleines Fenster. Dort kannst du **sofort testen**:
 
-1. League starten und in ein Spiel gehen.
-2. (Einmalig) `python calibrate.py` ausführen → Rechteck um den Chat
-   ziehen → ausgegebene `CHAT_REGION`-Werte in `config.py` eintragen.
-3. `python main.py` starten.
-4. Ein Mitspieler/Gegner pingt einen Spell im Chat → Timer erscheint
-   automatisch im Overlay oben rechts.
+1. **„Demo"** klicken → fügt einen zufälligen Timer hinzu.
+2. Oder unten **manuell** einen Champion eintippen, Spell wählen, **„+"**.
+3. **„📋 In Zwischenablage"** klicken → die Zeile (`jhin 2 40, ...`)
+   liegt in der Zwischenablage. Irgendwo mit **Strg+V** einfügen zum Prüfen.
+4. **„Reset"** leert alle Timer.
 
----
-
-## Hotkeys (funktionieren auch im Spiel)
-
-| Taste | Funktion                                                        |
-|-------|-----------------------------------------------------------------|
-| `F8`  | Tippt alle laufenden Timer in den Chat: `jhin 2 40, lux 5 39`    |
-| `F9`  | Setzt alle Timer zurück (z.B. neues Spiel)                       |
-| `F10` | Beendet das Programm                                             |
-
-Tasten lassen sich in `config.py` ändern (`PASTE_HOTKEY`, `RESET_HOTKEY`,
-`QUIT_HOTKEY`). Mit `PASTE_TO_ALL_CHAT = True` wird in den All-Chat statt
-Team-Chat geschrieben.
+> Für diesen Testlauf musst du **nichts** zusätzlich installieren
+> (kein Tesseract, kein opencv).
 
 ---
 
-## Kalibrierung
+## Bedienung im Spiel
 
-`python calibrate.py` macht einen Vollbild-Screenshot. Ziehe ein
-Rechteck um das Chatfenster — die passenden `CHAT_REGION`-Werte werden in
-der Konsole ausgegeben.
+1. Flash Tracker starten: `python main.py`
+2. Fenster z.B. auf den zweiten Monitor schieben (oder „Immer oben" an).
+3. Timer pflegen — zwei Wege:
+   - **Manuell**: Champion + Spell eintragen, **„+"**. (zuverlässigster Weg)
+   - **Automatisch (OCR)**: Häkchen **„OCR-Scan"** setzen (siehe unten).
+4. Wenn du den Team-Stand teilen willst: **„📋 In Zwischenablage"**,
+   dann im League-Chat (Enter) **Strg+V** und absenden.
+
+---
+
+## Optional: Automatischer OCR-Scan
+
+Nur nötig, wenn die Timer automatisch aus dem Chat gelesen werden sollen.
+
+1. **Tesseract OCR installieren**
+   https://github.com/UB-Mannheim/tesseract/wiki → Windows-Installer,
+   Standard-Pfad lassen (`C:\Program Files\Tesseract-OCR\`).
+   Anderer Pfad? → `TESSERACT_CMD` in `config.py` anpassen.
+2. **OCR-Pakete installieren**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Chat-Region kalibrieren** (League im Spiel, Chat sichtbar):
+   ```bash
+   python calibrate.py
+   ```
+   Rechteck um das Chatfenster ziehen → ausgegebene `CHAT_REGION`-Werte
+   in `config.py` eintragen.
+4. In der GUI das Häkchen **„OCR-Scan"** setzen. Erkennt das Tool keine
+   OCR-Pakete, bleibt das Häkchen aus und es erscheint ein Hinweis —
+   manuelles Eintragen funktioniert trotzdem.
+
+---
+
+## GUI-Elemente
+
+| Element              | Funktion                                                |
+|----------------------|---------------------------------------------------------|
+| Timer-Liste          | Laufende Timer, nach Restzeit sortiert                  |
+| „Chat: …" Vorschau   | Genau der Text, der in die Zwischenablage kopiert wird  |
+| 📋 In Zwischenablage | Kopiert die Chat-Zeile → mit Strg+V einfügen            |
+| Demo                 | Fügt einen Beispiel-Timer hinzu (zum Testen)            |
+| Reset                | Löscht alle Timer                                       |
+| Champion + Spell + „+"| Timer manuell hinzufügen                               |
+| OCR-Scan             | Automatisches Chat-Lesen an/aus                         |
+| Immer oben           | Fenster bleibt über League                              |
 
 ---
 
 ## Dateien
 
-| Datei            | Zweck                                  |
-|------------------|----------------------------------------|
-| `main.py`        | Hauptloop, Hotkeys, Overlay            |
-| `capture.py`     | Chat-Screenshot (mss)                  |
-| `ocr.py`         | Tesseract OCR + Preprocessing          |
-| `parser.py`      | Regex Spell-Erkennung                  |
-| `timers.py`      | Timer-Verwaltung + Chat-Format         |
-| `overlay.py`     | Transparentes Always-on-Top Overlay    |
-| `alert.py`       | Audio-Alert                            |
-| `chat_paste.py`  | Tippt Timer in den League-Chat         |
-| `calibrate.py`   | Chat-Region bestimmen                  |
-| `config.py`      | Alle Einstellungen                     |
+| Datei           | Zweck                                  |
+|-----------------|----------------------------------------|
+| `main.py`       | Start der GUI                          |
+| `gui.py`        | Die GUI (Tkinter) + Clipboard          |
+| `scanner.py`    | Optionaler OCR-Scan-Thread             |
+| `capture.py`    | Chat-Screenshot (mss)                  |
+| `ocr.py`        | Tesseract OCR + Preprocessing          |
+| `parser.py`     | Regex Spell-Erkennung                  |
+| `timers.py`     | Timer-Verwaltung + Chat-Format         |
+| `alert.py`      | Optionaler Audio-Alert                 |
+| `calibrate.py`  | Chat-Region bestimmen                  |
+| `config.py`     | Alle Einstellungen                     |
 
 ---
 
 ## Troubleshooting
 
-- **OCR erkennt nichts** → Chat-Region neu kalibrieren; ggf.
-  `OCR_SCALE_FACTOR` erhöhen oder Threshold in `ocr.py` anpassen.
-- **Hotkeys reagieren nicht** → Konsole als Administrator starten.
-- **Tesseract not found** → `TESSERACT_CMD` in `config.py` prüfen.
-- **Falsche Champion-Namen** (z.B. „Jh1n") → Phase-2-Feature
-  Fuzzy-Matching; aktuell wird der erkannte Name 1:1 verwendet.
+- **`ModuleNotFoundError: tkinter`** → kommt auf normalen Windows-Python
+  nicht vor; nur bei minimalen Installationen. tkinter ist Teil der
+  Standard-Python-Installation.
+- **OCR-Häkchen springt zurück** → OCR-Pakete oder Tesseract fehlen; per
+  `pip install -r requirements.txt` nachinstallieren. Manuell geht weiter.
+- **OCR liest Mist** → Chat-Region neu kalibrieren; `OCR_SCALE_FACTOR`
+  erhöhen oder Threshold in `ocr.py` anpassen.
+- **Clipboard leer nach Schließen** → einfach Tool offen lassen, bis du
+  eingefügt hast.

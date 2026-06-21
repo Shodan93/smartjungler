@@ -1,7 +1,10 @@
+# GUI + Zwischenablage laufen mit Python-Bordmitteln (tkinter) — keine
+# Extra-Pakete nötig. Folgende Pakete werden nur für den OCR-Scan gebraucht:
 mss
 pytesseract
 pillow
 opencv-python
 numpy
+
+# Optional (Sound-Alert). Fällt sauber aus, wenn nicht installiert:
 pygame
-keyboard
