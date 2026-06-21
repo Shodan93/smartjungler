@@ -14,6 +14,9 @@ from tkinter import ttk
 from timers import TimerManager
 from scanner import Scanner
 from alert import AlertSystem
+from hud import MiniHUD
+from chat_paste import send_to_chat
+from wininput import HAS_WIN_INPUT, key_down, name_to_vk
 from config import (
     SPELLS,
     SPELL_COOLDOWNS,
@@ -23,6 +26,8 @@ from config import (
     SCAN_ENABLED_DEFAULT,
     AUTO_COPY_DEFAULT,
     ALERT_SOUND,
+    CHAT_TYPE_HOTKEY,
+    HUD_DEFAULT,
 )
 
 BG = "#11141a"
@@ -40,12 +45,18 @@ class FlashTrackerGUI:
         self.scanner = Scanner(self.manager, on_event=lambda c, s: self.alert.trigger())
 
         self._last_clip = None
+        self._hotkey_vk = name_to_vk(CHAT_TYPE_HOTKEY)
+        self._hotkey_was_down = False
 
         self.root = tk.Tk()
         self.root.title("Flash Tracker")
         self.root.configure(bg=BG)
-        self.root.geometry(f"320x510+{WINDOW_X}+{WINDOW_Y}")
+        self.root.geometry(f"320x540+{WINDOW_X}+{WINDOW_Y}")
         self.root.attributes("-topmost", ALWAYS_ON_TOP_DEFAULT)
+
+        self.hud = MiniHUD(self.root)
+        if not HUD_DEFAULT:
+            self.hud.hide()
 
         self._build_ui()
         self._tick()
@@ -123,12 +134,27 @@ class FlashTrackerGUI:
             activeforeground=FG, font=("Consolas", 10),
         ).pack(side="left", padx=8)
 
+        self.hud_var = tk.BooleanVar(value=HUD_DEFAULT)
+        tk.Checkbutton(
+            ctrl, text="HUD", variable=self.hud_var, command=self.toggle_hud,
+            bg=BG, fg=FG, selectcolor="#0a0c10", activebackground=BG,
+            activeforeground=FG, font=("Consolas", 10),
+        ).pack(side="left")
+
         self.autocopy_var = tk.BooleanVar(value=AUTO_COPY_DEFAULT)
         tk.Checkbutton(
             ctrl, text="Auto-Copy", variable=self.autocopy_var,
             bg=BG, fg=FG, selectcolor="#0a0c10", activebackground=BG,
             activeforeground=FG, font=("Consolas", 10),
-        ).pack(side="left")
+        ).pack(side="left", padx=8)
+
+        # Hinweis zum Chat-Tippen per Hotkey.
+        hk = CHAT_TYPE_HOTKEY.upper()
+        hint = (f"[{hk}] tippt Timer in den League-Chat (League muss aktiv sein)"
+                if HAS_WIN_INPUT else
+                "Chat-Tippen nur unter Windows verfügbar")
+        tk.Label(self.root, text=hint, bg=BG, fg=DIM, font=("Consolas", 9),
+                 anchor="w", justify="left", wraplength=300, padx=12).pack(fill="x")
 
         self.status = tk.Label(self.root, text="", bg=BG, fg=DIM,
                                font=("Consolas", 9), anchor="w", padx=12)
@@ -196,6 +222,22 @@ class FlashTrackerGUI:
     def toggle_top(self):
         self.root.attributes("-topmost", self.top_var.get())
 
+    def toggle_hud(self):
+        if self.hud_var.get():
+            self.hud.show()
+        else:
+            self.hud.hide()
+
+    def _check_hotkey(self):
+        """Pollt die Tipp-Taste; tippt bei Tastendruck die Timer in League."""
+        if not HAS_WIN_INPUT or self._hotkey_vk is None:
+            return
+        down = key_down(self._hotkey_vk)
+        if down and not self._hotkey_was_down:
+            if send_to_chat(self.manager.chat_line()):
+                self._flash_status("In League-Chat getippt")
+        self._hotkey_was_down = down
+
     def _flash_status(self, msg):
         self.status.config(text=msg)
 
@@ -210,13 +252,16 @@ class FlashTrackerGUI:
             self.timer_box.config(text="— keine Timer —")
             self.preview.config(text="")
 
-        # Auto-Copy: Zwischenablage laufend aktuell halten.
+        self.hud.update(timers)
+        self._check_hotkey()
+
+        # Auto-Copy (standardmäßig aus): Zwischenablage aktuell halten.
         if self.autocopy_var.get() and line and line != self._last_clip:
             self.root.clipboard_clear()
             self.root.clipboard_append(line)
             self._last_clip = line
 
-        self.root.after(200, self._tick)
+        self.root.after(150, self._tick)
 
     def run(self):
         self.root.mainloop()
